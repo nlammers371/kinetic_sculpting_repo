@@ -1,4 +1,4 @@
-function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
+function local_em_outputs = local_em_MS2_reduced_memory_truncated(fluo_values, ...
               v, noise, pi0_log, A_log, K, w, kappa, n_steps_max, eps)
 
     % Returns the estimates of the model parameters, given multiple data 
@@ -9,7 +9,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     %              values that come from the same AP position
     % v: initial emission values
     % noise: initial gaussian noise
-    % pi0_log: log of the initial naive state cmf at t=1
+    % pi0_log: log of the initial naive state cmf at t=2-w
     % A_log: log of the initial transition probability matrix
     % K: number of naive states
     % w: memory
@@ -23,7 +23,6 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     % - the relative change in model parameters is smaller than eps,
     % - or the number of backward-forward iterations exceeds n_steps_max
     % 
-    % pi0_log: log of the inferred initial state cmf
     % A_log: log of the inferred transition matrix
     % v_logs: logs of the absolute values of the emission parameters
     % v_signs: signs of the inferred emission parameters
@@ -31,7 +30,21 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     % n_iter: number of forward-backward iterations before convergence
     % logL: log-likelihood at the end of iterations
     
+    %%%%%%%%%%%%%%%%%%%%%%%% Consistency checks %%%%%%%%%%%%%%%%%%%%%%%%
+    if K ~= length(v)
+        error('Inconsistent number of states and emission vector dimensions')
+    end
+            
     %%%%%%%%%%%%%%%%%%%%%%% Variable assignments %%%%%%%%%%%%%%%%%%%%%%%
+    
+    % D_{ni} = 1 iff the w-th digit of the compound state i is equal to n
+    D = zeros(K, K^w);
+    for n = 1:K
+        D(n, digit(1:K^w,w,K,w) == n) = 1;
+    end
+    
+    % log of the accounting variable D
+    logD = log(D);
     
     % number of traces
     n_traces = length(fluo_values);
@@ -41,8 +54,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     v_signs = sign(v);
     lambda_log = -2*log(noise);
     
-    % logs of the fluorescence values &
-    % the lengths of the fluorescence traces
+    % logs of the fluorescence values & lengths of the fluorescence traces
     fluo_logs = cell([n_traces, 1]);
     fluo_signs = cell([n_traces, 1]);
     fluo_lengths = cell([n_traces, 1]);
@@ -57,16 +69,6 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     
     
     % ---------------------- Accounting variables ----------------------
-    
-    % C_{zm} = 1 iff the first digit of compound state m is equal to z
-    C = zeros(K, K^w);
-    for i = 1:K
-        columns = ((i-1)*K^(w-1) : ((i*K^(w-1))-1)) + 1;
-        C(i, columns(:)) = 1;
-    end
-
-    % log of the accounting variable C
-    logC = log(C);
 
     % F_{zl} is the number of times the naive state z is encountered in the
     % naive state representation of the compound state l, adjusted by 
@@ -75,7 +77,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
 
     % mean fractions of MS2 loops transcribed at each elongation step
     ms2_coeff = ms2_loading_coeff(kappa,w);
-
+    
     for i = 1:K^w
         naive = compound_to_naive(i, K, w);
         for k = 1:K
@@ -83,12 +85,6 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
         end
     end
     
-    % variable used to account for adjustements at time points 1:(w-1)
-    count_reduction = zeros([1,w-1]);
-    for t = 1:(w-1)
-        count_reduction(t) = sum(ms2_coeff((t+1):end));
-    end
-
     
     % ----------------------------- Lists ------------------------------
     
@@ -131,22 +127,10 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
         naive_count_map{i} = find(ismember(naive_count_list_MS2, ...
                                   naive, 'rows'));
     end
-    
-    % list of possible compound states at all times
-    time_max = max(cell2mat(fluo_lengths));
-    possible_states_list = cell(time_max, 1);
-    for t = 1:time_max
-        possible_states_list{t} = possible_states (t, K, w);        
-    end
 
     % calculation of p_ss_log indices in K^w x K^w x T representation
-%     ind_positions_2d_mat = sub2ind([K^w, K^w], allowed_from_list(:), ...
-%                                    repmat(1:K^w, [1, K])');
-%     ind_positions_2d = ind_positions_2d_mat(:);
-    
     ind_positions_2d = double(allowed_from_list(:)) + ...
                               K^w * (repmat(1:K^w, [1, K])'-1);
-    
     ind_2d = cell([K, K]);
     for m = 1:K
         for n = 1:K
@@ -154,14 +138,24 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             d_m_list = find(digit_first_list == m);
             allowed_from_n = allowed_from_list(d_n_list, :);
             column_ind = ismember(allowed_from_n(1,:), d_m_list) == 1;
-%             ind_2d_A_log_mat = sub2ind([K^w, K^w], ...
-%                                allowed_from_n(:, column_ind), d_n_list');
             ind_2d_A_log_mat = double(allowed_from_n(:, column_ind)) + ...
                                K^w * (d_n_list'-1);
             ind_2d{m,n} = find(ismember(ind_positions_2d, ...
                                            ind_2d_A_log_mat(:)));
         end
     end
+    
+    % Terms accounting for hidden transitions before the start of the trace
+    terms_truncated = cell([K, K]);
+    for m = 1:K
+        for n = 1:K
+            terms_truncated{m,n} = zeros(1,K^w);
+            for t = 2:w
+                terms_truncated{m,n} = terms_truncated{m,n} + ...
+                    (digit(1:K^w,t-1,K,w) == m).*(digit(1:K^w,t,K,w) == n);
+            end
+        end
+    end   
     
     
     % ------------------------ Pre-allocations -------------------------
@@ -184,6 +178,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     
     % used to track the next-to-last EM iteration
     one_more = 0;
+    
     
     %%%%%%%%%%%%%%%% Expectation-Maximizaiton algorithm %%%%%%%%%%%%%%%%
     
@@ -223,6 +218,21 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
         v_b_terms_log = -Inf([1,K]);
         v_b_terms_sign = ones([1,K]);
         
+        % Update the steady state probabilities of compound states
+        p_s0_log = zeros(K^w, 1);
+        for i = 1:K^w
+            naive_states = compound_to_naive(i, K, w);
+            
+%             pi0_log = log(occupancies(exp(A_log)));
+%             p_s0_log(i) = pi0_log(naive_states(w));
+            p_s0_log(i) = pi0_log(naive_states(w));
+
+            for k = w:-1:2
+                p_s0_log(i) = p_s0_log(i) + ...
+                        A_log(naive_states(k-1),naive_states(k));
+            end
+        end
+        
         %%%%%%%%%%%%%%%%%%%%%%%%% Expectation %%%%%%%%%%%%%%%%%%%%%%%%%%
         
         for i_tr = 1:n_traces
@@ -231,15 +241,8 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             % maximization of v
             log_F_terms = cell([K, 1]);
             for n = 1:K
-                log_F_terms{n} = repmat(log(F(n,:))', 1, ...
-                                         fluo_lengths{i_tr});
+                log_F_terms{n} = repmat(log(F(n,:))', 1, fluo_lengths{i_tr});
             end
-            temp_var = log_F_terms{1};
-            for t = 1 : (w-1)
-                temp_var(:,t) = log(abs(exp(temp_var(:,t)) - ...
-                                     count_reduction(t)));
-            end
-            log_F_terms{1} = temp_var;
             
             % calculation of p_ss_log indices for all traces used in A_log
             % maximization
@@ -256,21 +259,18 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             % logs and signs of the fluorescence data used in v maximization
             x_term_logs = repmat(log(abs(fluo_values{i_tr})), K^w, 1);
             x_term_signs = repmat(sign(fluo_values{i_tr}), K^w, 1);
-            
+
             
             % ------------- lists used in the expectation step ---------
             
             % list of log (X_t - V_t)^2 terms that appear in the emission pdf's
             difference_list_temp = zeros(K^w, fluo_lengths{i_tr});
-            if K ~= length(v_signs)
-                error('inconsitent state id and vec dims')
-            end
             for i = 1:n_unique
                 states = naive_count_map{i};
                 difference_list_temp(states, :) = ...
-                   repmat(difference_reduced_memory(fluo_logs{i_tr}, ...
+                   repmat(difference_reduced_memory_midway(fluo_logs{i_tr}, ...
                    fluo_signs{i_tr}, fluo_lengths{i_tr}, K, w, ...
-                   count_reduction, states(1), v_logs, v_signs, ...
+                   states(1), v_logs, v_signs, ...
                    naive_count_list_MS2_log)', [length(states), 1]);
             end
             difference_list = difference_list_temp;
@@ -288,20 +288,16 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             alpha_matrix_log(:,:) = -Inf;
             
             % calculates the alpha matrix elements for t = 1
-            for i = possible_states_list{1}
-                alpha_matrix_log(i, 1) = eta_log_list(i, 1) + ...
-                    pi0_log(digit_first_list(i));
+            for i = 1:K^w
+                alpha_matrix_log(i, 1) = eta_log_list(i, 1) + p_s0_log(i);
             end
-        
+            
             % calculates the alpha matrix elements for t > 1
             for t = 2:fluo_lengths{i_tr}
-                % possible states at time t
-                i_possible = possible_states_list{t};
-
                 % list of terms that are added to find the alpha matrix
                 % elements
-                alpha_terms_list = alpha_A_log_list(i_possible, :) + ...
-                    reshape(alpha_matrix_log(allowed_to_list(i_possible,:),t-1), [], K);             
+                alpha_terms_list = alpha_A_log_list(:, :) + ...
+                    reshape(alpha_matrix_log(allowed_to_list(:,:),t-1), [], K);             
 
                 % local execution of the vectorized log_sum_exp_positive
                 alpha_terms_max = max(alpha_terms_list, [], 2); 
@@ -314,9 +310,10 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
                 alpha_terms_diff_sum_exp_log(ind_inf) = 0;
 
                 % assignment of alpha matrix element values
-                alpha_matrix_log(i_possible,t) = alpha_terms_diff_sum_exp_log + ...
-                    alpha_terms_max + eta_log_list(i_possible, t);
+                alpha_matrix_log(:,t) = alpha_terms_diff_sum_exp_log + ...
+                    alpha_terms_max + eta_log_list(:, t);
             end
+            
             
             % ------------ beta coefficient matrix calculation ---------
             
@@ -331,13 +328,10 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
 
             % calculates the alpha matrix elements for t < time
             for t = (fluo_lengths{i_tr}-1: -1: 1)
-                % possible states at time t
-                i_possible = possible_states_list{t};
-
                 % list of terms that are added to find the beta matrix elements
-                beta_terms_list = beta_A_log_list(i_possible, :) + ...
-                    reshape(eta_log_list(allowed_from_list(i_possible,:), t+1), [], K) + ...
-                    reshape(beta_matrix_log(allowed_from_list(i_possible,:), t+1), [], K);
+                beta_terms_list = beta_A_log_list(:, :) + ...
+                    reshape(eta_log_list(allowed_from_list(:,:), t+1), [], K) + ...
+                    reshape(beta_matrix_log(allowed_from_list(:,:), t+1), [], K);
 
                 % local execution of the vectorized log_sum_exp_positive
                 beta_terms_max = max(beta_terms_list, [], 2);
@@ -350,8 +344,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
                 beta_terms_diff_sum_exp_log(ind_inf) = 0;
 
                 % assignment of beta matrix element values
-                beta_matrix_log(i_possible,t) = beta_terms_max + ...
-                    beta_terms_diff_sum_exp_log;
+                beta_matrix_log(:,t) = beta_terms_max + beta_terms_diff_sum_exp_log;
             end
             
             
@@ -366,6 +359,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             p_s_log = alpha_matrix_log + beta_matrix_log ...
                     - log_likelihoods{i_tr}(baum_welch);
             
+                
             % ------------------- <S_t, S_{t-1}> calculation ---------------
             
             % replication of the alpha matrix K times along one of the 2d axes
@@ -400,15 +394,17 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
             % pi0_log terms
             for m = 1:K
                 pi0_terms(m) = log_sum_exp_positive([pi0_terms(m), ...
-                    logC(m, :) + p_s_log(:,1)']);
+                    logD(m, :) + p_s_log(:,1)']);
             end
-
+            
             % A_log terms
             for m = 1:K
                 for n = 1:K
                     p_ss_log_ith = p_ss_log(A_log_maximization_ind{m,n});
                     A_terms(m,n) = log_sum_exp_positive([A_terms(m,n), ...
                         p_ss_log_ith(:)']);
+                    A_terms(m,n) = log_sum_exp_positive([A_terms(m,n), ...
+                        p_s_log(:,1)' + log(terms_truncated{m,n})]);
                 end
             end
             
@@ -469,7 +465,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
         
         
         %%%%%%%%%%%%%%%%%%%%%%%%% MAXIMIZATION %%%%%%%%%%%%%%%%%%%%%%%%%
-
+        
         % -------------------------- pi0_log ---------------------------
         pi0_old = exp(pi0_log);
         pi0_log = pi0_terms - log(n_traces);
@@ -530,8 +526,8 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
         if one_more == 1
             break
         end
-        if (max([pi0_norm_rel_change, A_norm_rel_change, noise_rel_change, ...
-                v_norm_rel_change, logL_norm_change]) < eps && one_more == 0)
+        if (max([A_norm_rel_change, noise_rel_change, v_norm_rel_change, ...
+                pi0_norm_rel_change, logL_norm_change]) < eps && one_more == 0)
             logL_tot = logL_tot(1:baum_welch);
             one_more = 1;
         end
@@ -544,7 +540,7 @@ function local_em_outputs = local_em_MS2_reduced_memory (fluo_values, ...
     soft_struct.p_zz_log_soft = p_zz_log_soft;
     
     % -------------- collection of outputs into a cell -----------------
-    local_em_outputs = struct('pi0_log', pi0_log, 'A_log', A_log, ...
+    local_em_outputs = struct('A_log', A_log, 'pi0_log', pi0_log, ...
         'v_logs', v_logs, 'v_signs', v_signs, 'lambda_log', lambda_log, ...
         'logL_bw', logL_tot, 'logL', max(logL_tot), 'n_iter', baum_welch, ...
         'soft_struct', soft_struct);

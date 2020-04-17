@@ -13,5 +13,5 @@ function d = digit(state, position, K, w)
     % OUTPUTS
     % d: the naive state at the specified position
     
-    remainder = mod(state-1, K^(w - position + 1));
-    d = floor(remainder / K^(w - position)) + 1;
+    remainder = mod(state-1, K.^(w - position + 1));
+    d = floor(remainder./ K.^(w - position)) + 1;

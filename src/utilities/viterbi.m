@@ -1,5 +1,5 @@
 function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
-                                     A_log, K, w, alpha_var)
+                                     A_log, K, w, kappa)
 
     % Given a time series of fluorescence values and the inferred model
     % parameters, returns the most likely path.
@@ -12,7 +12,7 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
     % A_log: log of the transition probability matrix
     % K: number of promoter states
     % w: memory
-    % alpha: length of the MS2 loop in time steps
+    % kappa: length of the MS2 loop in time steps
     %
     % OUTPUTS
     % viterbi_out: structure with the Viterbi algorithm results
@@ -25,7 +25,7 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
     seq_length = length(fluo_values);
 
     % fraction of the full MS2 sequence transcribed at each elongation step
-    ms2_coeff = ms2_loading_coeff(alpha_var,w);
+    ms2_coeff = ms2_loading_coeff(kappa,w);
     
     % ----------------------------- Lists ------------------------------
     
@@ -69,6 +69,12 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
         possible_states_list{t} = possible_states (t, K, w);        
     end
     
+    % variable used to account for adjustements at time points 1:(w-1)
+    count_reduction = zeros([1,w-1]);
+    for t = 1:(w-1)
+        count_reduction(t) = sum(ms2_coeff((t+1):end));
+    end
+    
     % ---------------------- Variable assignments ----------------------
     % logs of v and noise
     v_logs = log(abs(v));
@@ -89,16 +95,19 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
         end
     end
     
+    logB = log(B);
+    
     % --------------------- Log of emission terms ---------------------
     difference_list = zeros(K^w, seq_length);
     
     for i = 1:n_unique
         states = naive_count_map{i};
         difference_list(states, :) = ...
-            repmat(difference(fluo_log, fluo_sign, seq_length, K, w, alpha_var, ...
-            states(1), v_logs', v_signs', naive_count_list_MS2_log)', [length(states), 1]);        
+            repmat(difference_reduced_memory(fluo_log, fluo_sign, seq_length, K, w, count_reduction, ...
+            states(1), v_logs, v_signs, naive_count_list_MS2_log)', [length(states), 1]);
     end
-    eta_log = 0.5*(lambda_log - log(2*pi)) ...
+    
+    eta_log_list = 0.5*(lambda_log - log(2*pi)) ...
         -0.5*exp(lambda_log + difference_list);
     
     % --------------------- Viterbi path calculation -------------------
@@ -107,31 +116,48 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
     V_log = zeros([seq_length, K^w]);
     V_log(:,:) = -Inf;
     
+    
     for j = possible_states (1, K, w)
-        V_log(1, j) = eta_log(j, 1) + pi0_log(digit_first_list(j));
+        V_log(1, j) = eta_log_list(j, 1) + pi0_log(digit_first_list(j));
     end
     
+%     tic
     for t = 2:seq_length
-        prev_states = possible_states_list{t-1};
-        for i = possible_states_list{t}
-            V_log(t, i) = eta_log(i, t) + max(V_log(t-1, prev_states) + ...
-                A_log(digit_first_list(i), digit_first_list(prev_states)) + ...
-                log(B(i, prev_states)));
-        end
+%         disp(t);
+        prev_s = possible_states_list{t-1};
+        curr_s = possible_states_list{t};
+        
+        V_log(t,curr_s) = eta_log_list(curr_s,t) + ...
+            max(...
+            repmat(V_log(t-1, prev_s), [length(curr_s),1]) + ...
+            A_log(digit_first_list(curr_s), digit_first_list(prev_s)) + ...
+            logB(curr_s, prev_s), [], 2);
+        
+%         for i = possible_states_list{t}
+%             V_log(t, i) = eta_log_list(i, t) + max(V_log(t-1, prev_s) + ...
+%                 A_log(digit_first_list(i), digit_first_list(prev_s)) + ...
+%                 log(B(i, prev_s)));
+%         end
     end
-    
+%     toc
+
     % Viterbi path in compound states
     S_viterbi = zeros([1, seq_length]);
     
-    ind_max = find(V_log(seq_length, :) == max(V_log(seq_length, :)));
+    logL_max = max(V_log(seq_length, :));
+    ind_max = find(V_log(seq_length, :) == logL_max);
+    
+    if (length(ind_max) > 1)
+        warning('Viterbi path is not uniquely defined');
+    end
     S_viterbi(seq_length) = ind_max(1);
     
     for t = (seq_length-1):-1:1
-        prev_states = possible_states_list{t};
-        terms = V_log(t, prev_states) + log(B(S_viterbi(t+1), prev_states)) + ...
-            A_log(digit_first_list(S_viterbi(t+1)), digit_first_list(prev_states));
+        prev_s = possible_states_list{t};
+        terms = V_log(t, prev_s) + log(B(S_viterbi(t+1), prev_s)) + ...
+            A_log(digit_first_list(S_viterbi(t+1)), digit_first_list(prev_s));
         ind_max = find(terms == max(terms));
-        S_viterbi(t) = prev_states(ind_max(1));
+        S_viterbi(t) = prev_s(ind_max(1));
         if (length(ind_max) > 1)
             warning('Viterbi path is not uniquely defined');
         end
@@ -141,8 +167,7 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
     z_viterbi = digit_first_list(S_viterbi);
     
     % corresponding emission values
-    v_viterbi = v(z_viterbi);
-
+    v_viterbi = v(z_viterbi);    
     % create a shifted emission matrix for fluorescence calculation
     emissions_mat = zeros(seq_length, w);
     for j = 1:w
@@ -157,4 +182,5 @@ function viterbi_out = viterbi (fluo_values, v, noise, pi0_log, ...
     % output structure of the Viterbi results
     viterbi_out = struct('z_viterbi', z_viterbi, ...
                          'v_viterbi', v_viterbi, ...
-                         'fluo_viterbi', fluo_viterbi);
+                         'fluo_viterbi', fluo_viterbi,...
+                         'logL', logL_max);

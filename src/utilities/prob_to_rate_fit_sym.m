@@ -31,7 +31,7 @@ function out = prob_to_rate_fit_sym (A, dT, type, prior, u_bound)
     
     % Specify options to be incorporated into least squares fitting
     options = optimset('MaxFunEvals', 1000 ,'TolFun',1e-15, 'TolX',1e-15,...
-                 'TypicalX',typX);
+                 'TypicalX',typX,'Display','none');
              
     if strcmp(type,'gen')
         k_init = k - diag(diag(k));

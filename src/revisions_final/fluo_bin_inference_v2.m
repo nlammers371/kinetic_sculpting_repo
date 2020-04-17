@@ -14,14 +14,14 @@ project = 'revision_fluo_bins_v2';
 ReadPath = '../../dat/revisions/';
 savio=1; % Specify whether inference is being conducted on Savio Cluster
 stripe_id_index = 0:7; % only used for savio inference
-t_start = 25*60; % minimum time for inclusion in inference
+t_start = 0*60; % minimum time for inclusion in inference
 
 % add path to utilities folder
 if savio
-    addpath('/global/home/users/nlammers/repos/hmmm/src/utilities/');
+    addpath('../utilities/');
     %Get environment variable from job script
 else
-    addpath('X:\Nick\projects\hmmm\src\utilities'); % Route to hmmm utilities folder
+    addpath('../utilities'); % Route to hmmm utilities folder
 end
     
 %%%% Stable Params (these rarely change) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\

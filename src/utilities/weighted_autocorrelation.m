@@ -14,8 +14,8 @@ function [wt_autocorr, a_boot_errors, wt_dd, dd_boot_errors] = weighted_autocorr
     if ~bootstrap
         n_boots = 1;
     end
-    samples = zeros(lags+1,n_boots);    
-    dd_samples = zeros(lags-1,n_boots);
+    samples = NaN(lags+1,n_boots);    
+    dd_samples = NaN(lags-1,n_boots);
     for b = 1:n_boots
         %If bootstrap errors are desired, take n_boots samples with
         %replacement, each the size of original array
@@ -32,6 +32,9 @@ function [wt_autocorr, a_boot_errors, wt_dd, dd_boot_errors] = weighted_autocorr
                 error('Problem with NaN filtering');
             end            
             %Isolate active portion
+%             trace
+%             find(trace,1)
+%             find(trace,1,'last')
             trace_active = trace(find(trace,1):find(trace,1,'last'));
             if length(trace_active) < lags + 1
                 warning('Length of input trace insufficient for specified number of lags')
@@ -49,7 +52,7 @@ function [wt_autocorr, a_boot_errors, wt_dd, dd_boot_errors] = weighted_autocorr
         samples(:,b) = numerator ./ denominator;
         dd_samples(:,b) = diff(diff(samples(:,b)));
     end
-wt_autocorr = mean(samples,2);
-wt_dd = mean(dd_samples,2);
-a_boot_errors = std(samples')';
-dd_boot_errors = std(dd_samples')';
+    wt_autocorr = mean(samples,2);
+    wt_dd = mean(dd_samples,2);
+    a_boot_errors = std(samples')';
+    dd_boot_errors = std(dd_samples')';

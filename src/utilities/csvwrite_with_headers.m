@@ -12,13 +12,12 @@
 %   m           - array of data
 %   headers     - a cell array of strings containing the column headers. 
 %                 The length must be the same as the number of columns in m.
-%   r           - row offset of the data (optional parameter)
-%   c           - column offset of the data (optional parameter)
+%   p           - precision with which values are written
 %
 %
 % Outputs
 %   None
-function csvwrite_with_headers(filename,m,headers,pr,r,c)
+function csvwrite_with_headers(filename,m,headers,p)
 
 %% initial checks on the inputs
 if ~ischar(filename)
@@ -27,12 +26,9 @@ end
 
 % the r and c inputs are optional and need to be filled in if they are
 % missing
-if nargin < 5
-    r = 0;
-end
-if nargin < 6
-    c = 0;
-end
+
+r = 0;
+c = 0;
 
 if ~iscellstr(headers)
     error('Header must be cell array of strings')
@@ -69,4 +65,4 @@ fclose(fid);
 %
 % Call dlmwrite with a comma as the delimiter
 %
-dlmwrite(filename, m,'-append','delimiter',',','roffset', r,'coffset',c,'precision',pr);
+dlmwrite(filename, m,'-append','delimiter',',','precision',p);
