@@ -9,5 +9,10 @@ To get started, type one of these: helpwin, helpdesk, or demo.
 For product information, visit www.mathworks.com.
  
 >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> [Warning: Directory already exists.] 
->> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> Starting parallel pool (parpool) using the 'local' profile ...
+>> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> [Warning: Too few data points. Skipping] 
+[Warning: Too few data points. Skipping] 
+[Warning: Too few data points. Skipping] 
+[Warning: Too few data points. Skipping] 
+[Warning: Too few data points. Skipping] 
+Starting parallel pool (parpool) using the 'local' profile ...
 connected to 24 workers.
