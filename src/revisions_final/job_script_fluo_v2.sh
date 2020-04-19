@@ -9,7 +9,7 @@
 #SBATCH --qos=savio_normal
 #
 # Account:
-#SBATCH --account=ac_mhmm
+#SBATCH --account=fc_mhmm
 #
 # Request one node:
 #SBATCH --nodes=1
