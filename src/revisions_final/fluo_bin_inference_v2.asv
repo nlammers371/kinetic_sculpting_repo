@@ -7,21 +7,21 @@ clear
 K = 3; % State(s) to use for inference
 w = 7; % Memory
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-n_bootstrap = 10; % number of bootstraps (overridden for set bootstrapping)
+n_bootstrap = 5; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 5000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
-project = 'revision_fluo_bins';
+project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions/';
-savio = 0; % Specify whether inference is being conducted on Savio Cluster
+savio=1; % Specify whether inference is being conducted on Savio Cluster
 stripe_id_index = 0:7; % only used for savio inference
-t_start = 25*60; % minimum time for inclusion in inference
+t_start = 0*60; % minimum time for inclusion in inference
 
 % add path to utilities folder
 if savio
-    addpath('/global/home/users/nlammers/repos/hmmm/src/utilities/');
+    addpath('../utilities/');
     %Get environment variable from job script
 else
-    addpath('X:\Nick\projects\hmmm\src\utilities'); % Route to hmmm utilities folder
+    addpath('../utilities'); % Route to hmmm utilities folder
 end
     
 %%%% Stable Params (these rarely change) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
@@ -47,7 +47,7 @@ load([ReadPath 'inference_traces_w_stripe_ids.mat']);
 alpha = trace_struct_final(1).alpha_frac*w; % Rise Time for MS2 Loops
 
 % Set write path (inference results are now written to external directory)
-out_suffix =  ['/' project '/w' num2str(w) '_K' num2str(K) '_' project '/']; 
+out_suffix =  ['/' project '/w' num2str(w) '_K' num2str(K) '_t' num2str(t_start/60) '_' project '/']; 
 if savio
     out_prefix = '/global/scratch/nlammers/eve7stripes_data_v2/';
 else    
@@ -61,11 +61,9 @@ mkdir(out_dir);
 trace_struct_filtered = [];
 for i = 1:length(trace_struct_final)
     temp = struct;
-    time = trace_struct_final(i).time_interp;
-    time_raw = trace_struct_final(i).time;
-    fluo = trace_struct_final(i).fluo_interp;  
-    time_ft = time  >= t_start;
-    time_ft_raw = time_raw  >= t_start;
+    time = trace_struct_final(i).time_interp(w+1:end);    
+    fluo = trace_struct_final(i).fluo_interp(w+1:end);  
+    time_ft = time  >= t_start;    
     if sum(time_ft) >= minDP
         temp.fluo_interp = fluo(time_ft);
         temp.time_interp = time(time_ft);             
@@ -76,7 +74,6 @@ for i = 1:length(trace_struct_final)
         trace_struct_filtered = [trace_struct_filtered temp];    
     end
 end
-% trace_struct_filtered = trace_struct_filtered([trace_struct_filtered.qc_flag]==1);
 
 % generate fluorescence bins that are consistent across all stripes
 f_bins = 1:9;
@@ -91,10 +88,15 @@ fluo_id_vec = discretize(mean_fluo_vec,fluo_quantiles);
 for i = 1:numel(trace_struct_filtered)
     trace_struct_filtered(i).FluoBin = fluo_id_vec(i);
 end
+stripe_vec_inf = repelem(stripe_id_index,numel(f_bins));
+fluo_vec_inf = repelem(f_bins,numel(stripe_id_index));
 
-%% Conduct Inference
+
+% Conduct Inference
 % iterate through inference groups
-for f = 1:numel(fluo_vec_inf)         
+rng('shuffle')
+inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
+for f = inference_list         
     stripe_bin = stripe_vec_inf(f); % get groups for present iteration      
     for b = 1:n_bootstrap                
         local_struct = struct;
@@ -215,8 +217,8 @@ for f = 1:numel(fluo_vec_inf)
             output.fluo_bin = fluo_vec_inf(f);                                                
             output.dp_bootstrap_flag = dp_bootstrap;               
             output.iter_id = b;
-            output.fluotraces = fluo_data;
-            output.traces = fluo_data;
+            output.fluo_traces = fluo_data;
+            output.time_traces = time_data;
             output.particle_ids = particle_id_list;
             if dp_bootstrap 
                 output.N = ndp;
@@ -227,7 +229,6 @@ for f = 1:numel(fluo_vec_inf)
             output.deltaT = Tres;                  
         end
         output.skip_flag = skip_flag;
-%             output.inference_traces = fluo_data;
         save([out_file '.mat'], 'output');           
     end      
 end    
