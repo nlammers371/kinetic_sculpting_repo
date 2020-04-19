@@ -7,7 +7,7 @@ clear
 K = 3; % State(s) to use for inference
 w = 7; % Memory
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
+n_bootstrap = 2; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 5000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
