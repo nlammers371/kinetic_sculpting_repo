@@ -7,10 +7,10 @@ clear
 K = 3; % State(s) to use for inference
 w = 7; % Memory
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-n_bootstrap = 5; % number of bootstraps (overridden for set bootstrapping)
+n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 5000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
-project = 'revision_fluo_bins_v2';
+project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions/';
 savio=1; % Specify whether inference is being conducted on Savio Cluster
 stripe_id_index = 0:7; % only used for savio inference
@@ -61,8 +61,13 @@ mkdir(out_dir);
 trace_struct_filtered = [];
 for i = 1:length(trace_struct_final)
     temp = struct;
-    time = trace_struct_final(i).time_interp(w+1:end);    
-    fluo = trace_struct_final(i).fluo_interp(w+1:end);  
+    if t_start == 0
+        time = trace_struct_final(i).time_interp; 
+        fluo = trace_struct_final(i).fluo_interp; 
+    else        
+        time = trace_struct_final(i).time_interp(w+1:end); 
+        fluo = trace_struct_final(i).fluo_interp(w+1:end);  
+    end
     time_ft = time  >= t_start;    
     if sum(time_ft) >= minDP
         temp.fluo_interp = fluo(time_ft);
@@ -76,7 +81,10 @@ for i = 1:length(trace_struct_final)
 end
 
 % generate fluorescence bins that are consistent across all stripes
-f_bins = 1:9;
+f_bins = 1:10;
+if t_start  > 0
+    f_bins = 1:9;
+end
 stripe_id_vec = [trace_struct_filtered.Stripe];
 mean_fluo_vec = [trace_struct_filtered.MeanFluo];
 
@@ -88,7 +96,7 @@ fluo_id_vec = discretize(mean_fluo_vec,fluo_quantiles);
 for i = 1:numel(trace_struct_filtered)
     trace_struct_filtered(i).FluoBin = fluo_id_vec(i);
 end
-stripe_vec_inf = repelem(stripe_id_index,numel(f_bins));
+stripe_vec_inf = repmat(stripe_id_index,1,numel(f_bins));
 fluo_vec_inf = repelem(f_bins,numel(stripe_id_index));
 
 
@@ -185,9 +193,15 @@ for f = inference_list
                 init_struct(i_local).noise_init = noise_init;                
                 init_struct(i_local).subset_id = i_local;
                 %--------------------LocalEM Call-------------------------%
-                local_out = local_em_MS2_reduced_memory_truncated(fluo_data, ...
-                    v_init, noise_init, pi0_log_init', A_log_init, K, w, ...
-                    alpha, n_steps_max, eps);                    
+                if t_start == 0
+                    local_out = local_em_MS2_reduced_memory(fluo_data, ...
+                        v_init, noise_init, pi0_log_init', A_log_init, K, w, ...
+                        alpha, n_steps_max, eps);
+                else
+                    local_out = local_em_MS2_reduced_memory_truncated(fluo_data, ...
+                        v_init, noise_init, pi0_log_init', A_log_init, K, w, ...
+                        alpha, n_steps_max, eps);                    
+                end
                 %---------------------------------------------------------%                
                 % Save Results 
                 local_struct(i_local).inference_id = inference_id;
@@ -219,6 +233,7 @@ for f = inference_list
             output.iter_id = b;
             output.fluo_traces = fluo_data;
             output.time_traces = time_data;
+            output.t_start = t_start;
             output.particle_ids = particle_id_list;
             if dp_bootstrap 
                 output.N = ndp;
