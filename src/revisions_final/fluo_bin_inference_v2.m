@@ -6,13 +6,13 @@ clear
 % Core parameters
 K = 3; % State(s) to use for inference
 w = 7; % Memory
+savio = 1; % Specify whether inference is being conducted on Savio Cluster
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-n_bootstrap = 2; % number of bootstraps (overridden for set bootstrapping)
-sample_size = 5000; % number of data points to use
+n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
+sample_size = 3000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions/';
-savio=1; % Specify whether inference is being conducted on Savio Cluster
 stripe_id_index = 0:7; % only used for savio inference
 t_start = 0*60; % minimum time for inclusion in inference
 
@@ -76,29 +76,67 @@ for i = 1:length(trace_struct_final)
         temp.MeanFluo = nanmean(fluo(time_ft));
         temp.ParticleID = trace_struct_final(i).ParticleID;    
         temp.N = sum(time_ft);
+        temp.FluoBin = -1;
+        temp.FluoBinAll = -1;
         trace_struct_filtered = [trace_struct_filtered temp];    
     end
 end
 
 % generate fluorescence bins that are consistent across all stripes
-f_bins = 1:10;
-if t_start  > 0
-    f_bins = 1:9;
-end
+
 stripe_id_vec = [trace_struct_filtered.Stripe];
 mean_fluo_vec = [trace_struct_filtered.MeanFluo];
 
-nTotal = sum([trace_struct_filtered.N]);
-prctile_vec = linspace(0,1,numel(f_bins)+1);
-% get quantile bins
-fluo_quantiles = quantile(mean_fluo_vec,prctile_vec);
-fluo_id_vec = discretize(mean_fluo_vec,fluo_quantiles);
-for i = 1:numel(trace_struct_filtered)
-    trace_struct_filtered(i).FluoBin = fluo_id_vec(i);
+if t_start > 0
+    stripe_vec_inf = [];
+    fluo_vec_inf = []; 
+    fluo_val_inf = [];
+    for s = stripe_id_index        
+        if s>0
+            stripe_ids = find(stripe_id_vec==s);
+            nTotal = sum([trace_struct_filtered(stripe_id_vec==s).N]);
+            mean_vec_stripe = mean_fluo_vec(stripe_id_vec==s);
+        else
+            stripe_ids = 1:numel(stripe_id_vec);
+            nTotal = sum([trace_struct_filtered.N]);
+            mean_vec_stripe = mean_fluo_vec;
+        end
+        nBins = min([11 ceil(nTotal/sample_size)+1]);        
+        prctile_vec = linspace(0,1,nBins);
+        % get quantile bins
+        fluo_quantiles = quantile(mean_vec_stripe,prctile_vec);
+        fluo_id_vec = discretize(mean_vec_stripe,fluo_quantiles);
+        iter = 1;
+        if s > 0
+            for i = stripe_ids
+                trace_struct_filtered(i).FluoBin = fluo_id_vec(iter);
+                iter = iter + 1;
+            end
+        else
+            for i = stripe_ids
+                trace_struct_filtered(i).FluoBinAll = fluo_id_vec(iter);
+                iter = iter + 1;
+            end
+        end
+        fluo_index = unique(fluo_id_vec);
+        stripe_vec_inf = [stripe_vec_inf repelem(s,numel(fluo_index))];
+        fluo_vec_inf = [fluo_vec_inf fluo_index];
+        fluo_val_inf = [fluo_val_inf fluo_quantiles(1:end-1)+diff(fluo_quantiles)/2];
+    end
+else
+    f_bins = 1:10;
+    prctile_vec = linspace(0,1,numel(f_bins)+1);
+    % get quantile bins
+    fluo_quantiles = quantile(mean_fluo_vec,prctile_vec);
+    fluo_id_vec = discretize(mean_fluo_vec,fluo_quantiles);
+    for i = 1:numel(trace_struct_filtered)
+        trace_struct_filtered(i).FluoBin = fluo_id_vec(i);
+        trace_struct_filtered(i).FluoBinAll = fluo_id_vec(i);
+    end
+    stripe_vec_inf = repmat(stripe_id_index,1,numel(f_bins));
+    fluo_vec_inf = repelem(f_bins,numel(stripe_id_index)); 
+    fluo_val_inf = repelem(fluo_quantiles(1:end-1)+diff(fluo_quantiles)/2,numel(stripe_id_index)); 
 end
-stripe_vec_inf = repmat(stripe_id_index,1,numel(f_bins));
-fluo_vec_inf = repelem(f_bins,numel(stripe_id_index));
-
 
 % Conduct Inference
 % iterate through inference groups
@@ -106,26 +144,23 @@ rng('shuffle')
 inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
 for f = inference_list         
     stripe_bin = stripe_vec_inf(f); % get groups for present iteration      
+    fluo_bin = fluo_vec_inf(f);
+    fluo_val = fluo_val_inf(f);    
     for b = 1:n_bootstrap                
         local_struct = struct;
         init_struct = struct;
-        output = struct;        
-        
+        output = struct;                
         % Use current time as unique inference identifier 
-        inference_id = num2str(round(10e5*now));        
-        
+        inference_id = num2str(round(10e5*now));                
         % Generate filenames            
         fName_sub = ['eveSet_w' num2str(w) '_K' num2str(K) ...
             '_stripe' num2str(stripe_bin) '_fbin' num2str(fluo_vec_inf(f)) '_t' inference_id];                
-        out_file = [out_dir '/' fName_sub];
-        
-        % Extract fluo_data        
-        stripe_ids = round([trace_struct_filtered.Stripe]);
-        fluo_bins = [trace_struct_filtered.FluoBin];
-        if stripe_bin ~= 0
-            trace_filter = ismember(stripe_ids,stripe_bin)&fluo_bins==fluo_vec_inf(f);
+        out_file = [out_dir '/' fName_sub];             
+       
+        if stripe_bin ~= 0             
+            trace_filter = ismember(stripe_id_vec,stripe_bin)&[trace_struct_filtered.FluoBin]==fluo_bin;
         else
-            trace_filter = fluo_bins==fluo_vec_inf(f);
+            trace_filter = [trace_struct_filtered.FluoBinAll]==fluo_bin;
         end
         trace_ind = find(trace_filter);        
         
@@ -228,7 +263,8 @@ for f = inference_list
             output.total_steps = local_struct(max_index).total_steps;                                                  
             % Save inference ID variables
             output.Stripe = stripe_bin;                                
-            output.fluo_bin = fluo_vec_inf(f);                                                
+            output.fluo_bin = fluo_bin;                                                
+            output.fluo_val = fluo_val;                                                
             output.dp_bootstrap_flag = dp_bootstrap;               
             output.iter_id = b;
             output.fluo_traces = fluo_data;
