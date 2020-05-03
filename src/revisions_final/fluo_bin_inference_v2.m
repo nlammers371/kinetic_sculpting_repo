@@ -14,7 +14,7 @@ min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions/';
 stripe_id_index = 0:7; % only used for savio inference
-t_start = 25*60; % minimum time for inclusion in inference
+t_start = 0*60; % minimum time for inclusion in inference
 
 % add path to utilities folder
 if savio

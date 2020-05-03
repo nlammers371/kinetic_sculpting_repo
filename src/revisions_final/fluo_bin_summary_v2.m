@@ -5,23 +5,25 @@ addpath('../utilities')
 % Core parameters
 K = 3; % State(s) to use for inference
 w = 7; % Memory
+t_start = 0; % start time for inference
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-project = 'revision_fluo_bins';
-ReadPath = '../../dat/revisions/';
-FigPath = ['../../fig/revisions/' project '/'];
+project = 'revision_fluo_bins_v3';
+ReadPath = '../../dat/revisions_final/';
+FigPath = ['../../fig/revisions_final/' project '/'];
 mkdir(FigPath);
-WritePath = ['../../out/revisions/' project '/'];
+WritePath = ['S:\Nick\Dropbox (Personal)\kinetic_scultping_inference_results\eve7stripes_data_v2\' project '/'];
 mkdir(WritePath)
 %%%% Stable Params (these rarely change) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
 Tres = 20; % Time Resolution
 min_dp = 10; % min length of traces to include
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-load([ReadPath 'fluo_inf_struct.mat']);
-%%%
-alpha = fluo_inf_struct(1).alpha_frac*w; % Rise Time for MS2 Loops
-
-read_dir = ['../../out/revisions/' project '/w7_K3_revision_fluo_bins/'];
+load([ReadPath 'inference_traces_w_stripe_ids.mat']);
+%%
+alpha = trace_struct_final(1).alpha_frac*w; % Rise Time for MS2 Loops
+read_dir = ['S:\Nick\Dropbox (Personal)\kinetic_scultping_inference_results\eve7stripes_data_v2\' ...
+    project '\w' num2str(w) '_K' num2str(K) '_t' num2str(t_start) '_' project '\'];
+% read_dir = ['../../out/revisions/' project '/w7_K3_revision_fluo_bins/'];
 file_list = dir([read_dir '*.mat']);
 
 inference_results = struct;
@@ -37,71 +39,75 @@ for f = 1:numel(file_list)
     end
 end
 
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%% Checks to ensure validity of fluo bin identifiers %%%%%%%%%
-tr_fluo_id = [fluo_inf_struct.FluoBin];
-tr_particle_id = [fluo_inf_struct.ParticleID];
-for i = 1:numel(inference_results)
-    particle_ids = inference_results(i).particle_ids;
-    fluo_ids = tr_fluo_id(ismember(tr_particle_id,particle_ids));
-    fID = unique(fluo_ids);
-    if numel(fID) > 1
-        error('multiple fluo identifiers')
-    else
-        inference_results(i).fluo_bin = fID;
-    end
-end
-
-%%% make indexing vectors
 fluo_bin_vec = [inference_results.fluo_bin];
 fluo_index = unique(fluo_bin_vec);
-stripe_id_vec = [inference_results.stripe_id];
+stripe_id_vec = [inference_results.Stripe];
 stripe_index = unique(stripe_id_vec);
-% run some quick sanity checks on the grouping variables
-mf_vec = [];
-stripe_vec = [];
-fluo_vec = [];
-for i = 1:numel(inference_results)
-    fluo_data = inference_results(i).traces;
-    stripe = inference_results(i).stripe_id;
-    f_bin = inference_results(i).fluo_bin;
-    for j = 1:numel(fluo_data)
-        mf_vec = [mf_vec nanmean(fluo_data{j})];
-        stripe_vec = [stripe_vec stripe];
-        fluo_vec = [fluo_vec f_bin];
-    end
-end
 %%
-cm = brewermap(numel(stripe_index),'Spectral');
-for s = 1:numel(stripe_index)
-    stripe_fig = figure;
-    color = cm(s,:);
-    mf_mean_vec = NaN(size(fluo_index));
-    mf_ste_vec = NaN(size(fluo_index));
-    hold on
-    for f = 1:numel(fluo_index)
-        fs_filter = fluo_vec==fluo_index(f)&stripe_vec==stripe_index(s);
-%         scatter(fluo_vec(fs_filter),mf_vec(fs_filter),...
-%             'MarkerFaceColor',color,'MarkerFaceAlpha',.05,'MarkerEdgeAlpha',0)
-        % calculate mean and ste
-        mf_mean_vec(f) = nanmean(mf_vec(fs_filter));
-        mf_ste_vec(f) = nanstd(mf_vec(fs_filter));
-    end
-    e = errorbar(fluo_index,mf_mean_vec,mf_ste_vec,'Color','black','LineWidth',1);
-    e.CapSize = 0;
-    scatter(fluo_index,mf_mean_vec,20,'MarkerFaceColor',color,'MarkerEdgeColor','black')
-    grid on
-    xlabel('fluorescence bin')
-    ylabel('mean trace fluorescence')
-    title(['Data Integrity Check for Stripe ' num2str(stripe_index(s))])
-    saveas(stripe_fig, [FigPath 'fluo_check_stripe' num2str(stripe_index(s)) '.png'])
-end
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%% Checks to ensure validity of fluo bin identifiers %%%%%%%%%
+% tr_fluo_id = [fluo_inf_struct.FluoBin];
+% tr_particle_id = [fluo_inf_struct.ParticleID];
+% for i = 1:numel(inference_results)
+%     particle_ids = inference_results(i).particle_ids;
+%     fluo_ids = tr_fluo_id(ismember(tr_particle_id,particle_ids));
+%     fID = unique(fluo_ids);
+%     if numel(fID) > 1
+%         error('multiple fluo identifiers')
+%     else
+%         inference_results(i).fluo_bin = fID;
+%     end
+% end
+% 
+% %%% make indexing vectors
+% fluo_bin_vec = [inference_results.fluo_bin];
+% fluo_index = unique(fluo_bin_vec);
+% stripe_id_vec = [inference_results.stripe_id];
+% stripe_index = unique(stripe_id_vec);
+% % run some quick sanity checks on the grouping variables
+% mf_vec = [];
+% stripe_vec = [];
+% fluo_vec = [];
+% for i = 1:numel(inference_results)
+%     fluo_data = inference_results(i).traces;
+%     stripe = inference_results(i).stripe_id;
+%     f_bin = inference_results(i).fluo_bin;
+%     for j = 1:numel(fluo_data)
+%         mf_vec = [mf_vec nanmean(fluo_data{j})];
+%         stripe_vec = [stripe_vec stripe];
+%         fluo_vec = [fluo_vec f_bin];
+%     end
+% end
+% %%
+% cm = brewermap(numel(stripe_index),'Spectral');
+% for s = 1:numel(stripe_index)
+%     stripe_fig = figure;
+%     color = cm(s,:);
+%     mf_mean_vec = NaN(size(fluo_index));
+%     mf_ste_vec = NaN(size(fluo_index));
+%     hold on
+%     for f = 1:numel(fluo_index)
+%         fs_filter = fluo_vec==fluo_index(f)&stripe_vec==stripe_index(s);
+% %         scatter(fluo_vec(fs_filter),mf_vec(fs_filter),...
+% %             'MarkerFaceColor',color,'MarkerFaceAlpha',.05,'MarkerEdgeAlpha',0)
+%         % calculate mean and ste
+%         mf_mean_vec(f) = nanmean(mf_vec(fs_filter));
+%         mf_ste_vec(f) = nanstd(mf_vec(fs_filter));
+%     end
+%     e = errorbar(fluo_index,mf_mean_vec,mf_ste_vec,'Color','black','LineWidth',1);
+%     e.CapSize = 0;
+%     scatter(fluo_index,mf_mean_vec,20,'MarkerFaceColor',color,'MarkerEdgeColor','black')
+%     grid on
+%     xlabel('fluorescence bin')
+%     ylabel('mean trace fluorescence')
+%     title(['Data Integrity Check for Stripe ' num2str(stripe_index(s))])
+%     saveas(stripe_fig, [FigPath 'fluo_check_stripe' num2str(stripe_index(s)) '.png'])
+% end
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%% iterate through results and generate summary stats %%%%%%%%%%%
 hmm_results = struct;
-transfer_vars = {'r','noise','soft_struct','stripe_id','fluo_bin'...
+transfer_vars = {'r','noise','soft_struct','Stripe','fluo_bin','fluo_val',...
     'particle_ids','N','w','alpha','deltaT'};
 r_error = 0;
 for i = 1:numel(inference_results)
@@ -137,7 +143,7 @@ for i = 1:numel(inference_results)
         R = out.R_out;     
     end
     % check for problematic init rate values
-    r_error = r_error + 1*(min(r_sorted) > -.05*max(r_sorted));
+    r_error = r_error + 1*(abs(min(r_sorted)) > .05*max(r_sorted));
     
     % if inference results meet QC criteria, record
     if isreal(R) && sum(R(:)<0) == K && min(r_sorted) > -.05*max(r_sorted) 
@@ -160,56 +166,66 @@ for i = 1:numel(inference_results)
     end
 end
 %% generate summary table to write to csv
+save_prefix = ['w' num2str(w) '_K' num2str(K) '_t' num2str(t_start) '_'];
 r_eff_vec = [hmm_results.r_eff];
-kon_vec = [hmm_results.kon];
-koff_vec = [hmm_results.koff];
-r_mat = reshape([hmm_results.r]',numel(kon_vec),K);
-ft = ~isnan(kon_vec);
+kon_eff_vec = [hmm_results.kon];
+koff_eff_vec = [hmm_results.koff];
+r_mat = reshape([hmm_results.r]',numel(kon_eff_vec),K);
+
+ft = ~isnan(kon_eff_vec);
 
 
 inference_id_vec = 1:numel(hmm_results);
-results_table = array2table([inference_id_vec' fluo_bin_vec' stripe_id_vec' kon_vec' koff_vec' ...
+results_table = array2table([inference_id_vec' fluo_bin_vec' stripe_id_vec' kon_eff_vec' koff_eff_vec' ...
         r_mat r_eff_vec'], 'VariableNames',{'inf_id', 'fluo_bin', 'stripe_id',...
         'kon','koff','r1','r2','r3','r_eff'});
 % save
-writetable(results_table,[WritePath 'fluo_bin_results_full_final.csv'])
-save([WritePath 'fluo_bin_results_full_final.mat'],'hmm_results')
+writetable(results_table,[WritePath save_prefix 'fluo_bin_results_full_final.csv'])
+save([WritePath '\' save_prefix 'fluo_bin_results_full_final.mat'],'hmm_results')
 
 %%% Generate and save list of particle IDs corresponding to each inference
 particle_id_cell = cell(1,numel(inference_results));
 for i = 1:numel(inference_results)
     particle_id_cell{i} = inference_results(i).particle_ids;
 end
-save([WritePath 'fluo_bin_particle_ids.mat'],'particle_id_cell')
+save([WritePath save_prefix 'fluo_bin_particle_ids.mat'],'particle_id_cell')
 
 
-% generate vector of mean fluorescent values for fluo bins
-mean_fluo_vec = NaN(size(fluo_index));
-for  f = 1:numel(fluo_index)
-    mean_fluo_vec(f) = mean([fluo_inf_struct(tr_fluo_id==f).fluo_interp]);
-end
+% flag results with problematic r values for exclusion
+r_err_flag = 0.05*abs(results_table.r1) > results_table.r3;
+
 % make condensed summary
 fluo_index = unique(fluo_bin_vec);
 stripe_index = unique(stripe_id_vec);
+fluo_val_index = unique([inference_results.fluo_val]);
 iter = 1;
 for f = 1:numel(fluo_index)
     for s = 1:numel(stripe_index)
-        ft = fluo_bin_vec==fluo_index(f)&stripe_id_vec==stripe_index(s)&~isnan(kon_vec);   
+        ft = fluo_bin_vec==fluo_index(f)&stripe_id_vec==stripe_index(s)&~isnan(kon_eff_vec)&~r_err_flag';   
         ft_raw = fluo_bin_vec==fluo_index(f)&stripe_id_vec==stripe_index(s);
+        % obtain param vectors
+        r_vec = r_eff_vec(ft);
+        koff_vec = koff_eff_vec(ft);
+        kon_vec = kon_eff_vec(ft);
+        % flag outlier values
+        [~,TF_r] = rmoutliers(r_vec);
+        [~,TF_kon] = rmoutliers(kon_vec);
+        [~,TF_koff] = rmoutliers(koff_vec);
+        outlier_ft = ~(TF_r|TF_kon|TF_koff);
         % calculate statistics 
-        r_med = 60*nanmean(r_eff_vec(ft));
-        r_ste = 60*nanstd(r_eff_vec(ft));
+        r_med = 60*nanmean(r_vec(outlier_ft));
+        r_ste = 60*nanstd(r_vec(outlier_ft));
         
-        kon_med = 60*nanmean(kon_vec(ft));
-        kon_ste = 60*nanstd(kon_vec(ft));
+        kon_med = 60*nanmean(kon_vec(outlier_ft));
+        kon_ste = 60*nanstd(kon_vec(outlier_ft));
         
-        koff_med = 60*nanmean(koff_vec(ft));
-        koff_ste = 60*nanstd(koff_vec(ft));
+        koff_med = 60*nanmean(koff_vec(outlier_ft));
+        koff_ste = 60*nanstd(koff_vec(outlier_ft));
         
         if iter == 1
-            summary_mat = [fluo_index(f) mean_fluo_vec(f) stripe_index(s) sum(ft_raw) sum(ft) kon_med kon_ste koff_med koff_ste r_med r_ste];
+            summary_mat = [fluo_index(f) fluo_val_index(f) stripe_index(s) sum(ft_raw) sum(ft) kon_med kon_ste koff_med koff_ste r_med r_ste];
         else
-            summary_mat = vertcat(summary_mat,[fluo_index(f) mean_fluo_vec(f) stripe_index(s) sum(ft_raw) sum(ft) kon_med kon_ste koff_med koff_ste r_med r_ste]);
+            summary_mat = vertcat(summary_mat,[fluo_index(f) fluo_val_index(f) stripe_index(s) sum(ft_raw) sum(ft) kon_med kon_ste koff_med koff_ste r_med r_ste]);
         end
         iter = iter + 1;
     end
@@ -217,7 +233,7 @@ end
 
 summary_table = array2table(summary_mat(:,[1:3 6:11]), 'VariableNames',{'fluo_bin', 'mean_fluo', 'stripe_id',...
         'kon','kon_err','koff','koff_err','r','r_err'});
-writetable(summary_table,[WritePath 'fluo_hmm_results_final.csv'])
+writetable(summary_table,[WritePath save_prefix 'fluo_hmm_results_final.csv'])
 %%
 % plot_vars = {'kon_vec','koff_vec','cycle_vec','kon_vec./koff_vec','r_mat(:,2)','r_mat(:,3)'};
 % pv_names = {'kon (s^{-1})','koff (s^{-1})','cycle time (s)', 'kon-koff ratio',...
