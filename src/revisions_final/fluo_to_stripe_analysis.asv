@@ -10,8 +10,8 @@ dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
 project = 'revision_fluo_bins_v3';
 FigPath = ['../../fig/revisions/' project '/'];
 mkdir(FigPath);
-RawPath = '../../dat/revisions_final/';
-InferencePath = ['S:\Nick\Dropbox (Personal)\kinetic_scultping_inference_results\eve7stripes_data_v2\' project '/'];
+RawPath = '../../dat/revisions/';
+InferencePath = ['S:\Nick\Dropbox (Personal)\kinetic_scultping_inference_results\eve7stripes_data_v2\revision_fluo_bins_v3/' project '/'];
 read_prefix = ['w' num2str(w) '_K' num2str(K) '_t' num2str(t_start) '_'];
 %%%% Stable Params (these rarely change) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
 Tres = 20; % Time Resolution
