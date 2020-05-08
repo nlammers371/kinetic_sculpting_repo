@@ -12,7 +12,7 @@ n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 3000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
-ReadPath = '../../dat/revisions/';
+ReadPath = '../../dat/revisions_final/';
 stripe_id_index = 0:7; % only used for savio inference
 t_start = 0*60; % minimum time for inclusion in inference
 
