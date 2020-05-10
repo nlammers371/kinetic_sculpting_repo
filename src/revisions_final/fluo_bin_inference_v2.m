@@ -49,7 +49,7 @@ alpha = trace_struct_final(1).alpha_frac*w; % Rise Time for MS2 Loops
 % Set write path (inference results are now written to external directory)
 out_suffix =  ['/' project '/w' num2str(w) '_K' num2str(K) '_t' num2str(t_start/60) '_' project '/']; 
 if savio
-    out_prefix = '/global/scratch/nlammers/eve7stripes_data_v2/';
+    out_prefix = '/global/scratch/nlammers/eve7stripes_data_v3/';
 else    
     out_prefix = '../../out/revisions/';
 %     out_prefix = 'D:\Data\Nick\LivemRNA\LivemRNAFISH\Dropbox (Garcia Lab)/eve7stripes_data/inference_out/';
