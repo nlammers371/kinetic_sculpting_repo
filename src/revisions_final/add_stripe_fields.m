@@ -15,7 +15,7 @@ dataname = ['inference_traces_' project '_dT' num2str(Tres) '.mat'];
 % load data for inference into struct named: trace_struct_final
 load([datapath dataname]);
 % load Mike's stripe assigment key
-stripe_assignments = readtable('E:\Nick\projects\all_the_stripes_cd\dat\revisions\stripe_assignments_eve_9jan19.csv');
+stripe_assignments = readtable('X:\Nick\projects\kinetic_sculpting_repo\dat\revisions_final\stripe_assignments_eve_9jan19.csv');
 
 add_particle_id_vec = stripe_assignments.particle_id;
 % add stripe info to data structure

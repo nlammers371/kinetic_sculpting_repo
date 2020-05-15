@@ -72,7 +72,7 @@ for i = 1:length(trace_struct_final)
     if sum(time_ft) >= minDP
         temp.fluo_interp = fluo(time_ft);
         temp.time_interp = time(time_ft);             
-        temp.Stripe = mean(round(trace_struct_final(i).mike_stripe_id(time_ft)));           
+        temp.Stripe = mode(round(trace_struct_final(i).mike_stripe_id(time_ft)));                           
         temp.MeanFluo = nanmean(fluo(time_ft));
         temp.ParticleID = trace_struct_final(i).ParticleID;    
         temp.N = sum(time_ft);
@@ -82,7 +82,7 @@ for i = 1:length(trace_struct_final)
     end
 end
 
-% generate fluorescence bins that are consistent across all stripes
+%% generate fluorescence bins that are consistent across all stripes
 
 stripe_id_vec = [trace_struct_filtered.Stripe];
 mean_fluo_vec = [trace_struct_filtered.MeanFluo];
