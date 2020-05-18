@@ -4,9 +4,9 @@ clear
 
 %-------------------------------System Vars-------------------------------%
 % Core parameters
-K = 2; % State(s) to use for inference
-w = 4; % Memory
-savio = 0; % Specify whether inference is being conducted on Savio Cluster
+K = 3; % State(s) to use for inference
+w = 7; % Memory
+savio = 1; % Specify whether inference is being conducted on Savio Cluster
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
 n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 3000; % number of data points to use
