@@ -8,13 +8,13 @@ K = 3; % State(s) to use for inference
 w = 7; % Memory
 savio = 1; % Specify whether inference is being conducted on Savio Cluster
 dp_bootstrap = 1; % if 1 use bootstrap resampling at level of data points
-n_bootstrap = 1; % number of bootstraps (overridden for set bootstrapping)
+n_bootstrap = 2; % number of bootstraps (overridden for set bootstrapping)
 sample_size = 3000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions_final/';
-stripe_id_index = [0 4 6]; % only used for savio inference
-t_start = 0*60; % minimum time for inclusion in inference
+stripe_id_index = 0:7; % only used for savio inference
+t_start = 25*60; % minimum time for inclusion in inference
 
 % add path to utilities folder
 if savio
@@ -141,9 +141,9 @@ end
 % Conduct Inference
 % iterate through inference groups
 rng('shuffle')
-options = fluo_vec_inf==1;
-% inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
-inference_list = randsample(find(options),sum(options),false);
+% options = fluo_vec_inf==1;
+inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
+% inference_list = randsample(find(options),sum(options),false);
 for f = inference_list         
     stripe_bin = stripe_vec_inf(f); % get groups for present iteration      
     fluo_bin = fluo_vec_inf(f);
