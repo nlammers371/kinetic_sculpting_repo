@@ -8,7 +8,7 @@ project = 'eve7stripes_inf_2018_04_28'; % project identifier
 Tres = 20; % Time Resolution
 % data paths
 datapath = ['../../dat/' project '/']; %Path to raw data
-OutPath = '../../dat/revisions/';
+OutPath = '../../dat/revisions_final/';
 mkdir(OutPath)
 % generate read and write names
 dataname = ['inference_traces_' project '_dT' num2str(Tres) '.mat'];

@@ -44,7 +44,7 @@ fluo_val_vec = [inference_results.fluo_val];
 fluo_index = unique(fluo_bin_vec);
 stripe_id_vec = [inference_results.Stripe];
 stripe_index = unique(stripe_id_vec);
-%%
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%% Checks to ensure validity of fluo bin identifiers %%%%%%%%%
 tr_particle_index = [trace_struct_final.ParticleID];
@@ -76,10 +76,11 @@ for i = 1:numel(inference_results)
     mean_fluo_vec(i) = nanmean(fluo_cx_vec);
     stripe_cx_flags(i) = all(stripe_cx_vec==stripe_id) || stripe_id == 0;
 end
-if ~all(stripe_cx_flag)
+
+if ~all(stripe_cx_flags)
     error('inconsistency with stripe assignments')
 end
-%%
+
 close all
 cm = brewermap(numel(stripe_index),'Set2');
 for s = stripe_index
@@ -94,9 +95,7 @@ for s = stripe_index
     grid on
     saveas(fluo_cx_fig,[FigPath 'data_integrity_check_stripe' num2str(s) '.png'])
 end
-
-
-%%
+close all
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%% iterate through results and generate summary stats %%%%%%%%%%%
 hmm_results = struct;
