@@ -13,7 +13,7 @@ sample_size = 3000; % number of data points to use
 min_dp_per_inf = 1000; % inference will be aborted if fewer present
 project = 'revision_fluo_bins_v3';
 ReadPath = '../../dat/revisions_final/';
-stripe_id_index = 0:7; % only used for savio inference
+stripe_id_index = [0 4 6]; % only used for savio inference
 t_start = 0*60; % minimum time for inclusion in inference
 
 % add path to utilities folder
@@ -82,7 +82,7 @@ for i = 1:length(trace_struct_final)
     end
 end
 
-%% generate fluorescence bins that are consistent across all stripes
+% generate fluorescence bins that are consistent across all stripes
 
 stripe_id_vec = [trace_struct_filtered.Stripe];
 mean_fluo_vec = [trace_struct_filtered.MeanFluo];
@@ -141,7 +141,9 @@ end
 % Conduct Inference
 % iterate through inference groups
 rng('shuffle')
-inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
+options = fluo_vec_inf==1;
+% inference_list = randsample(1:numel(fluo_vec_inf),numel(fluo_vec_inf),false);
+inference_list = randsample(find(options),sum(options),false);
 for f = inference_list         
     stripe_bin = stripe_vec_inf(f); % get groups for present iteration      
     fluo_bin = fluo_vec_inf(f);
